@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 
@@ -25,20 +26,28 @@ const productOptions = [
   "추가 상담 1시간",
 ];
 
-const initialFormData: FormData = {
-  name: "",
-  phone: "",
-  product: "전화 상담 1시간",
-  date1: "",
-  time1: "",
-  date2: "",
-  time2: "",
-  date3: "",
-  time3: "",
-  payment: "무통장입금",
-};
-
 export default function ConsultPage() {
+  const router = useRouter();
+
+  const today = useMemo(() => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offset).toISOString().split("T")[0];
+  }, []);
+
+  const initialFormData: FormData = {
+    name: "",
+    phone: "",
+    product: "전화 상담 1시간",
+    date1: "",
+    time1: "",
+    date2: "",
+    time2: "",
+    date3: "",
+    time3: "",
+    payment: "무통장입금",
+  };
+
   const [formData, setFormData] = useState<FormData>(initialFormData);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -47,6 +56,7 @@ export default function ConsultPage() {
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
   ) => {
     const { name, value } = e.target;
+
     setFormData((prev) => ({
       ...prev,
       [name]: value,
@@ -67,15 +77,16 @@ export default function ConsultPage() {
         body: JSON.stringify(formData),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => null);
 
-      if (!res.ok || !data.success) {
-        setMessage(data.message || "상담 신청 중 오류가 발생했습니다.");
+      if (!res.ok || !data?.success) {
+        setMessage(data?.message || "상담 신청 중 오류가 발생했습니다.");
         return;
       }
 
-      setMessage("상담 신청이 정상적으로 접수되었습니다.");
       setFormData(initialFormData);
+      router.push("/consult/complete");
+      router.refresh();
     } catch (error) {
       console.error("상담 신청 오류:", error);
       setMessage("네트워크 오류가 발생했습니다.");
@@ -181,7 +192,8 @@ export default function ConsultPage() {
                 <div>
                   <h3 className="text-lg font-semibold">희망 일정</h3>
                   <p className="mt-2 text-sm text-gray-500">
-                    가능하신 날짜와 시간을 총 3개 남겨주세요.
+                    가능하신 날짜와 시간을 총 3개 남겨주세요. 날짜는 오늘 이후만
+                    선택 가능하며, 시간은 1시간 단위로 선택해 주세요.
                   </p>
 
                   <div className="mt-5 space-y-4">
@@ -202,6 +214,7 @@ export default function ConsultPage() {
                             <input
                               type="date"
                               name={`date${num}`}
+                              min={today}
                               className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
                               value={
                                 formData[`date${num}` as keyof FormData] as string
@@ -218,6 +231,7 @@ export default function ConsultPage() {
                             <input
                               type="time"
                               name={`time${num}`}
+                              step={3600}
                               className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
                               value={
                                 formData[`time${num}` as keyof FormData] as string
@@ -280,6 +294,8 @@ export default function ConsultPage() {
                 <div className="mt-5 space-y-3 text-sm leading-7 text-gray-700">
                   <p>• 결제 완료 후에도 최종 상담 일정은 운영자 확인 후 확정됩니다.</p>
                   <p>• 희망 날짜와 시간은 총 3개까지 입력해 주세요.</p>
+                  <p>• 지난 날짜는 선택할 수 없습니다.</p>
+                  <p>• 시간은 1시간 단위로 입력해 주세요.</p>
                   <p>• 신청 접수 후 운영자가 확인한 뒤 일정 조율 안내를 드립니다.</p>
                   <p>• 신청 즉시 텔레그램 알림으로 운영자에게 전달됩니다.</p>
                 </div>
@@ -308,8 +324,6 @@ export default function ConsultPage() {
                   </div>
                 </div>
               </div>
-
-              
             </div>
           </div>
         </section>
