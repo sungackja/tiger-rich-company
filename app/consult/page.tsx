@@ -26,6 +26,24 @@ const productOptions = [
   "추가 상담 1시간",
 ];
 
+const timeOptions = [
+  "09:00",
+  "10:00",
+  "11:00",
+  "12:00",
+  "13:00",
+  "14:00",
+  "15:00",
+  "16:00",
+  "17:00",
+  "18:00",
+  "19:00",
+  "20:00",
+  "21:00",
+  "22:00",
+  "23"
+];
+
 export default function ConsultPage() {
   const router = useRouter();
 
@@ -193,7 +211,7 @@ export default function ConsultPage() {
                   <h3 className="text-lg font-semibold">희망 일정</h3>
                   <p className="mt-2 text-sm text-gray-500">
                     가능하신 날짜와 시간을 총 3개 남겨주세요. 날짜는 오늘 이후만
-                    선택 가능하며, 시간은 1시간 단위로 선택해 주세요.
+                    선택 가능하며, 시간은 선택창에서 1시간 단위로 선택해 주세요.
                   </p>
 
                   <div className="mt-5 space-y-4">
@@ -228,17 +246,20 @@ export default function ConsultPage() {
                             <label className="mb-2 block text-sm font-medium text-gray-700">
                               시간
                             </label>
-                            <input
-                              type="time"
+                            <select
                               name={`time${num}`}
-                              step={3600}
                               className="w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 outline-none transition focus:border-amber-400 focus:ring-4 focus:ring-amber-100"
-                              value={
-                                formData[`time${num}` as keyof FormData] as string
-                              }
+                              value={formData[`time${num}` as keyof FormData] as string}
                               onChange={handleChange}
                               required
-                            />
+                            >
+                              <option value="">시간 선택</option>
+                              {timeOptions.map((time) => (
+                                <option key={time} value={time}>
+                                  {time}
+                                </option>
+                              ))}
+                            </select>
                           </div>
                         </div>
                       </div>
@@ -295,7 +316,7 @@ export default function ConsultPage() {
                   <p>• 결제 완료 후에도 최종 상담 일정은 운영자 확인 후 확정됩니다.</p>
                   <p>• 희망 날짜와 시간은 총 3개까지 입력해 주세요.</p>
                   <p>• 지난 날짜는 선택할 수 없습니다.</p>
-                  <p>• 시간은 1시간 단위로 입력해 주세요.</p>
+                  <p>• <p>• 시간은 선택창에서 1시간 단위로 선택해 주세요.</p></p>
                   <p>• 신청 접수 후 운영자가 확인한 뒤 일정 조율 안내를 드립니다.</p>
                   <p>• 신청 즉시 텔레그램 알림으로 운영자에게 전달됩니다.</p>
                 </div>
