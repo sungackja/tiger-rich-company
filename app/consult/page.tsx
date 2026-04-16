@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import Navbar from "../components/Navbar";
-import { supabase } from "@/lib/supabase";
 import Footer from "../components/Footer";
 
 type FormData = {
@@ -26,20 +25,21 @@ const productOptions = [
   "추가 상담 1시간",
 ];
 
-export default function ConsultPage() {
-  const [formData, setFormData] = useState<FormData>({
-    name: "",
-    phone: "",
-    product: "전화 상담 1시간",
-    date1: "",
-    time1: "",
-    date2: "",
-    time2: "",
-    date3: "",
-    time3: "",
-    payment: "무통장입금",
-  });
+const initialFormData: FormData = {
+  name: "",
+  phone: "",
+  product: "전화 상담 1시간",
+  date1: "",
+  time1: "",
+  date2: "",
+  time2: "",
+  date3: "",
+  time3: "",
+  payment: "무통장입금",
+};
 
+export default function ConsultPage() {
+  const [formData, setFormData] = useState<FormData>(initialFormData);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -58,54 +58,30 @@ export default function ConsultPage() {
     setLoading(true);
     setMessage("");
 
-    const { error } = await supabase.from("consultations").insert([
-      {
-        name: formData.name,
-        phone: formData.phone,
-        product: formData.product,
-        date1: formData.date1,
-        time1: formData.time1,
-        date2: formData.date2,
-        time2: formData.time2,
-        date3: formData.date3,
-        time3: formData.time3,
-        payment: formData.payment,
-      },
-    ]);
-
-    if (error) {
-      console.error("Supabase 저장 오류:", error);
-      setMessage("신청 저장 중 오류가 발생했습니다.");
-      setLoading(false);
-      return;
-    }
-
     try {
-      await fetch("/api/telegram", {
+      const res = await fetch("/api/telegram", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(formData),
       });
-    } catch (telegramError) {
-      console.error("텔레그램 전송 오류:", telegramError);
-    }
 
-    setMessage("상담 신청이 정상적으로 접수되었습니다.");
-    setFormData({
-      name: "",
-      phone: "",
-      product: "전화 상담 1시간",
-      date1: "",
-      time1: "",
-      date2: "",
-      time2: "",
-      date3: "",
-      time3: "",
-      payment: "무통장입금",
-    });
-    setLoading(false);
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        setMessage(data.message || "상담 신청 중 오류가 발생했습니다.");
+        return;
+      }
+
+      setMessage("상담 신청이 정상적으로 접수되었습니다.");
+      setFormData(initialFormData);
+    } catch (error) {
+      console.error("상담 신청 오류:", error);
+      setMessage("네트워크 오류가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -113,7 +89,6 @@ export default function ConsultPage() {
       <Navbar />
 
       <main className="min-h-screen bg-[linear-gradient(180deg,#f8f4e8_0%,#fffaf1_35%,#ffffff_100%)] text-gray-900">
-        {/* Hero */}
         <section className="border-b border-black/5">
           <div className="mx-auto max-w-6xl px-6 py-16 md:py-20">
             <div className="max-w-3xl">
@@ -131,10 +106,8 @@ export default function ConsultPage() {
           </div>
         </section>
 
-        {/* Form Area */}
         <section className="mx-auto max-w-6xl px-6 py-14 md:py-20">
           <div className="grid gap-8 lg:grid-cols-[1.15fr_0.85fr]">
-            {/* Left Form */}
             <div className="rounded-[32px] border border-white/60 bg-white/85 p-6 shadow-xl shadow-black/5 backdrop-blur md:p-8">
               <div className="mb-8">
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700">
@@ -143,13 +116,12 @@ export default function ConsultPage() {
                 <h2 className="mt-3 text-2xl font-bold tracking-tight md:text-3xl">
                   상담 정보를 입력해주세요
                 </h2>
-                <p className="mt-3 text-gray-600 leading-7">
+                <p className="mt-3 leading-7 text-gray-600">
                   기본 정보와 희망 일정을 입력하면 상담 신청이 접수됩니다.
                 </p>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-8">
-                {/* Basic Info */}
                 <div>
                   <h3 className="text-lg font-semibold">기본 정보</h3>
                   <div className="mt-4 grid gap-4 md:grid-cols-2">
@@ -185,7 +157,6 @@ export default function ConsultPage() {
                   </div>
                 </div>
 
-                {/* Product */}
                 <div>
                   <h3 className="text-lg font-semibold">상담 상품 선택</h3>
                   <div className="mt-4">
@@ -199,13 +170,14 @@ export default function ConsultPage() {
                       onChange={handleChange}
                     >
                       {productOptions.map((option) => (
-                        <option key={option}>{option}</option>
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
                       ))}
                     </select>
                   </div>
                 </div>
 
-                {/* Schedule */}
                 <div>
                   <h3 className="text-lg font-semibold">희망 일정</h3>
                   <p className="mt-2 text-sm text-gray-500">
@@ -260,7 +232,6 @@ export default function ConsultPage() {
                   </div>
                 </div>
 
-                {/* Payment */}
                 <div>
                   <h3 className="text-lg font-semibold">결제 방식</h3>
                   <div className="mt-4">
@@ -273,20 +244,19 @@ export default function ConsultPage() {
                       value={formData.payment}
                       onChange={handleChange}
                     >
-                      <option>무통장입금</option>
-                      <option>카드결제</option>
+                      <option value="무통장입금">무통장입금</option>
+                      <option value="카드결제">카드결제</option>
                     </select>
                   </div>
                 </div>
 
-                {/* Button */}
                 <div className="pt-2">
                   <button
                     type="submit"
                     disabled={loading}
                     className="w-full rounded-2xl bg-black px-6 py-4 text-lg font-semibold text-white shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {loading ? "저장 중..." : "상담 신청하기"}
+                    {loading ? "접수 중..." : "상담 신청하기"}
                   </button>
 
                   {message ? (
@@ -298,7 +268,6 @@ export default function ConsultPage() {
               </form>
             </div>
 
-            {/* Right Info Panel */}
             <div className="space-y-6">
               <div className="rounded-[32px] border border-amber-200 bg-white/85 p-7 shadow-xl shadow-black/5 backdrop-blur">
                 <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700">
@@ -340,24 +309,13 @@ export default function ConsultPage() {
                 </div>
               </div>
 
-              <div className="rounded-[32px] border border-gray-200 bg-white p-7 shadow-sm">
-                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700">
-                  Note
-                </p>
-                <h3 className="mt-3 text-xl font-bold tracking-tight">
-                  현재 구조
-                </h3>
-                <p className="mt-4 text-sm leading-7 text-gray-600">
-                  현재 사이트는 상담 신청 접수, Supabase 저장, 텔레그램 알림까지
-                  연동된 상태입니다. 이후 카드결제, 관리자 기능, 상태관리 기능을
-                  단계적으로 추가할 수 있습니다.
-                </p>
-              </div>
+              
             </div>
           </div>
         </section>
       </main>
-    <Footer />
+
+      <Footer />
     </>
   );
 }

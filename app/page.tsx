@@ -97,6 +97,14 @@ export default function HomePage() {
                 >
                   상담 상품 보기
                 </a>
+                <a
+                  href="https://open.kakao.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="rounded-2xl border border-gray-300 px-6 py-4 font-semibold hover:bg-gray-50 transition"
+                >
+                  오픈채팅 바로가기
+                </a>
               </div>
 
               <div className="mt-8 grid gap-2 text-sm text-gray-600">
