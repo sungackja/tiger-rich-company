@@ -17,17 +17,18 @@ export default async function PaymentSuccessPage({
   const amount = params.amount;
 
   if (!paymentKey || !orderId || !amount) {
-    redirect("/payments/fail?message=필수 결제 정보가 없습니다.");
+    redirect(
+      `/payments/fail?message=${encodeURIComponent(
+        "필수 결제 정보가 없습니다."
+      )}`
+    );
   }
 
-  const siteUrl =
-    process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
 
   const res = await fetch(`${siteUrl}/api/payments/confirm`, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     cache: "no-store",
     body: JSON.stringify({
       paymentKey,
@@ -48,7 +49,7 @@ export default async function PaymentSuccessPage({
 
   return (
     <main className="min-h-screen bg-[#f8f4e8] px-6 py-16">
-      <div className="mx-auto max-w-xl rounded-[32px] bg-white p-8 shadow-lg">
+      <div className="mx-auto max-w-xl rounded-[28px] bg-white p-8 shadow-lg">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700">
           Payment Success
         </p>

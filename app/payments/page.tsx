@@ -1,26 +1,5 @@
 "use client";
 
-type TossPaymentInstance = {
-  requestPayment: (params: {
-    method: "CARD";
-    amount: {
-      currency: "KRW";
-      value: number;
-    };
-    orderId: string;
-    orderName: string;
-    customerName: string;
-    successUrl: string;
-    failUrl: string;
-  }) => Promise<unknown> | void;
-};
-
-type TossPaymentsInstance = {
-  payment: (params: { customerKey: string }) => TossPaymentInstance;
-};
-
-type TossPaymentsInit = (clientKey: string) => TossPaymentsInstance;
-
 const products = [
   { name: "전화 상담 1시간", amount: 50000 },
   { name: "대면 상담 1시간", amount: 100000 },
@@ -34,7 +13,7 @@ function createOrderId() {
 }
 
 function createCustomerKey() {
-  return `customer_${Math.random().toString(36).slice(2, 12)}@tiger`;
+  return `customer_${Math.random().toString(36).slice(2, 12)}`;
 }
 
 export default function PaymentsPage() {
@@ -44,17 +23,12 @@ export default function PaymentsPage() {
     const clientKey = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY;
 
     if (!clientKey) {
-      alert("토스 클라이언트 키가 설정되지 않았습니다.");
+      alert("TossPayments 클라이언트 키가 설정되지 않았습니다.");
       return;
     }
 
-    const sdkModule = await import("@tosspayments/tosspayments-sdk");
-
-    const TossPayments =
-      ((sdkModule as unknown as { default?: TossPaymentsInit }).default ??
-        (sdkModule as unknown as TossPaymentsInit));
-
-    const tossPayments = TossPayments(clientKey);
+    const { loadTossPayments } = await import("@tosspayments/tosspayments-sdk");
+    const tossPayments = await loadTossPayments(clientKey);
     const payment = tossPayments.payment({
       customerKey: createCustomerKey(),
     });
@@ -67,20 +41,22 @@ export default function PaymentsPage() {
       },
       orderId: createOrderId(),
       orderName: selected.name,
-      customerName: "상담 신청 고객",
       successUrl: `${window.location.origin}/payments/success`,
       failUrl: `${window.location.origin}/payments/fail`,
+      customerName: "상담 신청 고객",
     });
   };
 
   return (
     <main className="min-h-screen bg-[#f8f4e8] px-6 py-16">
-      <div className="mx-auto max-w-xl rounded-[32px] bg-white p-8 shadow-lg">
+      <div className="mx-auto max-w-xl rounded-[28px] bg-white p-8 shadow-lg">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700">
           Payment
         </p>
         <h1 className="mt-3 text-3xl font-bold">상담 결제</h1>
-        <p className="mt-4 text-gray-600">상담 상품을 결제하고 신청을 완료합니다.</p>
+        <p className="mt-4 text-gray-600">
+          상담 상품을 결제하고 신청을 완료합니다.
+        </p>
 
         <div className="mt-8 rounded-2xl border border-gray-200 p-5">
           <p className="text-sm text-gray-500">상품명</p>
@@ -93,6 +69,7 @@ export default function PaymentsPage() {
         </div>
 
         <button
+          type="button"
           onClick={handlePayment}
           className="mt-8 w-full rounded-2xl bg-black px-6 py-4 font-semibold text-white transition hover:bg-gray-800"
         >

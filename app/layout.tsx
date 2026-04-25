@@ -2,16 +2,16 @@ import "./globals.css";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "타이거 부동산 | 상담 및 임장 안내",
+  title: "Tiger Rich Company | 부동산 상담 신청",
   description:
-    "서울·수도권 부동산 상담, 시장 분석, 임장 안내를 제공하는 타이거 부동산 공식 사이트입니다.",
+    "부동산 상담 상품을 확인하고 원하는 일정으로 상담을 신청할 수 있는 Tiger Rich Company 공식 사이트입니다.",
 };
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   return (
     <html lang="ko">
       <body>{children}</body>

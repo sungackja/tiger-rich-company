@@ -20,9 +20,7 @@ export default function AdminLoginClient() {
     try {
       const res = await fetch("/api/admin/login", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ password }),
       });
 
@@ -36,7 +34,7 @@ export default function AdminLoginClient() {
       router.push(next);
       router.refresh();
     } catch (error) {
-      console.error("관리자 로그인 오류:", error);
+      console.error("Admin login error:", error);
       setMessage("서버 오류가 발생했습니다.");
     } finally {
       setLoading(false);
@@ -45,13 +43,11 @@ export default function AdminLoginClient() {
 
   return (
     <main className="min-h-screen bg-[linear-gradient(180deg,#f8f4e8_0%,#fffaf1_35%,#ffffff_100%)] px-6 py-16 text-gray-900">
-      <div className="mx-auto max-w-md rounded-[32px] border border-white/60 bg-white/90 p-8 shadow-xl shadow-black/5">
+      <div className="mx-auto max-w-md rounded-[28px] border border-white/60 bg-white/90 p-8 shadow-xl shadow-black/5">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700">
           Admin Access
         </p>
-        <h1 className="mt-3 text-3xl font-bold tracking-tight">
-          관리자 로그인
-        </h1>
+        <h1 className="mt-3 text-3xl font-bold tracking-tight">관리자 로그인</h1>
         <p className="mt-3 text-sm leading-7 text-gray-600">
           관리자 페이지 접근을 위해 비밀번호를 입력하세요.
         </p>

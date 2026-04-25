@@ -19,10 +19,7 @@ export async function POST(req: NextRequest) {
 
     if (!password || password !== adminPassword) {
       return NextResponse.json(
-        {
-          success: false,
-          message: "비밀번호가 올바르지 않습니다.",
-        },
+        { success: false, message: "비밀번호가 올바르지 않습니다." },
         { status: 401 }
       );
     }
@@ -42,13 +39,9 @@ export async function POST(req: NextRequest) {
 
     return response;
   } catch (error) {
-    console.error("관리자 로그인 API 오류:", error);
-
+    console.error("Admin login API error:", error);
     return NextResponse.json(
-      {
-        success: false,
-        message: "서버 오류가 발생했습니다.",
-      },
+      { success: false, message: "서버 오류가 발생했습니다." },
       { status: 500 }
     );
   }

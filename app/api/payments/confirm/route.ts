@@ -28,24 +28,26 @@ export async function POST(req: NextRequest) {
 
     const encryptedSecretKey = Buffer.from(`${secretKey}:`).toString("base64");
 
-    const response = await fetch("https://api.tosspayments.com/v1/payments/confirm", {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${encryptedSecretKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        paymentKey,
-        orderId,
-        amount,
-      }),
-    });
+    const response = await fetch(
+      "https://api.tosspayments.com/v1/payments/confirm",
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${encryptedSecretKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          paymentKey,
+          orderId,
+          amount,
+        }),
+      }
+    );
 
     const data = await response.json();
 
     if (!response.ok) {
-      console.error("토스 결제 승인 실패:", data);
-
+      console.error("Toss payment confirm failed:", data);
       return NextResponse.json(
         {
           success: false,
@@ -61,8 +63,7 @@ export async function POST(req: NextRequest) {
       payment: data,
     });
   } catch (error) {
-    console.error("결제 승인 API 오류:", error);
-
+    console.error("Payment confirm API error:", error);
     return NextResponse.json(
       {
         success: false,

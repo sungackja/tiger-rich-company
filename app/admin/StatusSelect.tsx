@@ -27,21 +27,9 @@ export default function StatusSelect({ id, initialStatus }: Props) {
     try {
       const res = await fetch(`/api/admin/consultations/${id}`, {
         method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status: nextStatus }),
       });
-
-      const contentType = res.headers.get("content-type") || "";
-
-      if (!contentType.includes("application/json")) {
-        const text = await res.text();
-        console.error("상태 변경 응답 오류:", text);
-        alert("서버 응답 형식이 올바르지 않습니다.");
-        setStatus(initialStatus);
-        return;
-      }
 
       const data = await res.json();
 
@@ -53,7 +41,7 @@ export default function StatusSelect({ id, initialStatus }: Props) {
 
       router.refresh();
     } catch (error) {
-      console.error("상태 변경 오류:", error);
+      console.error("Status update error:", error);
       alert("상태 변경 중 오류가 발생했습니다.");
       setStatus(initialStatus);
     } finally {

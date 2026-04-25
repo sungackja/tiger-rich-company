@@ -8,16 +8,16 @@ export default function ConsultCompletePage() {
   const router = useRouter();
 
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const timer = window.setTimeout(() => {
       router.push("/");
     }, 5000);
 
-    return () => clearTimeout(timer);
+    return () => window.clearTimeout(timer);
   }, [router]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-[linear-gradient(180deg,#f8f4e8_0%,#fffaf1_35%,#ffffff_100%)] px-6 py-16 text-gray-900">
-      <div className="w-full max-w-lg rounded-[32px] border border-white/60 bg-white/90 p-8 text-center shadow-xl shadow-black/5 md:p-10">
+      <div className="w-full max-w-lg rounded-[28px] border border-white/60 bg-white/90 p-8 text-center shadow-xl shadow-black/5 md:p-10">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-700">
           Consultation Complete
         </p>

@@ -12,7 +12,7 @@ export default async function PaymentFailPage({
 
   return (
     <main className="min-h-screen bg-[#f8f4e8] px-6 py-16">
-      <div className="mx-auto max-w-xl rounded-[32px] bg-white p-8 shadow-lg">
+      <div className="mx-auto max-w-xl rounded-[28px] bg-white p-8 shadow-lg">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-red-600">
           Payment Failed
         </p>
