@@ -27,11 +27,6 @@ export default function Footer() {
                   상담 신청
                 </Link>
               </li>
-              <li>
-                <Link href="/payments" className="hover:text-white">
-                  상담 상품
-                </Link>
-              </li>
             </ul>
           </div>
 

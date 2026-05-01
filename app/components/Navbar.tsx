@@ -18,9 +18,6 @@ export default function Navbar() {
           <Link href="/" className="transition hover:text-black">
             홈
           </Link>
-          <Link href="/payments" className="transition hover:text-black">
-            상담 상품
-          </Link>
           <Link
             href="/consult"
             className="rounded-full bg-black px-4 py-2 text-white transition hover:bg-gray-800"

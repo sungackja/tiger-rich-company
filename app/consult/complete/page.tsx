@@ -27,10 +27,16 @@ export default function ConsultCompletePage() {
         </h1>
 
         <p className="mt-4 text-sm leading-7 text-gray-600 md:text-base">
-          신청해 주셔서 감사합니다.
+          신청해 주셔서 감사합니다. 통장입금 부탁드립니다.
           <br />
-          확인 후 입력하신 연락처로 안내드리겠습니다.
+          입금 확인 후 입력하신 연락처로 상담 일정을 안내드리겠습니다.
         </p>
+
+        <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm font-semibold leading-7 text-amber-950">
+          하나은행 130-910417-11207
+          <br />
+          김선영
+        </div>
 
         <p className="mt-4 text-sm font-medium text-gray-500">
           5초 후 홈으로 자동 이동합니다.
