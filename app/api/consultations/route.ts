@@ -238,6 +238,60 @@ async function createSpreadsheet(
   };
 }
 
+async function moveSpreadsheetToFolder(
+  accessToken: string,
+  spreadsheetId: string
+) {
+  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID?.trim();
+
+  if (!folderId) return;
+
+  const parentsRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${spreadsheetId}?fields=parents&supportsAllDrives=true`,
+    {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    }
+  );
+  const parentsData = await parentsRes.json();
+
+  if (!parentsRes.ok) {
+    console.error("Google Drive parent read error:", parentsData);
+    throw new Error("스프레드시트 폴더 정보를 불러오지 못했습니다.");
+  }
+
+  const removeParents = Array.isArray(parentsData.parents)
+    ? parentsData.parents.join(",")
+    : "";
+  const params = new URLSearchParams({
+    addParents: folderId,
+    fields: "id,parents",
+    supportsAllDrives: "true",
+  });
+
+  if (removeParents) {
+    params.set("removeParents", removeParents);
+  }
+
+  const moveRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${spreadsheetId}?${params.toString()}`,
+    {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  const moveData = await moveRes.json();
+
+  if (!moveRes.ok) {
+    console.error("Google Drive move error:", moveData);
+    throw new Error("스프레드시트 폴더 이동에 실패했습니다.");
+  }
+}
+
 async function writeSpreadsheetValues(
   accessToken: string,
   spreadsheetId: string,
@@ -496,6 +550,7 @@ async function createConsultationSpreadsheet(body: ConsultationPayload) {
   const title = createSpreadsheetTitle(body, submittedDate);
   const spreadsheet = await createSpreadsheet(accessToken, title);
 
+  await moveSpreadsheetToFolder(accessToken, spreadsheet.id);
   await writeSpreadsheetValues(accessToken, spreadsheet.id, body, submittedDate);
   await formatSpreadsheet(accessToken, spreadsheet.id, spreadsheet.sheetId);
   await grantOwnerReadAccess(accessToken, spreadsheet.id);
