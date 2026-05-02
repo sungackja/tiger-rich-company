@@ -68,6 +68,22 @@ function base64Url(input: string) {
     .replace(/\//g, "_");
 }
 
+function getGoogleErrorMessage(data: unknown, fallback: string) {
+  if (
+    data &&
+    typeof data === "object" &&
+    "error" in data &&
+    data.error &&
+    typeof data.error === "object" &&
+    "message" in data.error &&
+    typeof data.error.message === "string"
+  ) {
+    return data.error.message;
+  }
+
+  return fallback;
+}
+
 function createJwt(clientEmail: string, privateKey: string) {
   const now = Math.floor(Date.now() / 1000);
   const header = {
@@ -225,7 +241,9 @@ async function createSpreadsheet(
 
   if (!createRes.ok || !createData.spreadsheetId) {
     console.error("Google Sheets create error:", createData);
-    throw new Error("스프레드시트 생성에 실패했습니다.");
+    throw new Error(
+      getGoogleErrorMessage(createData, "스프레드시트 생성에 실패했습니다.")
+    );
   }
 
   return {
