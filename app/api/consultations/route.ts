@@ -30,11 +30,27 @@ type Question = {
   label: string;
 };
 
-type CreatedSpreadsheet = {
+type SpreadsheetResult = {
   id: string;
-  sheetId: number;
   title: string;
   url: string;
+  provider: "서비스 계정" | "Apps Script";
+};
+
+type ServiceAccountSpreadsheet = Omit<SpreadsheetResult, "provider"> & {
+  sheetId: number;
+};
+
+type AppsScriptResult = {
+  success?: boolean;
+  message?: string;
+  spreadsheet?: Omit<SpreadsheetResult, "provider">;
+};
+
+type ProviderResult = {
+  provider: SpreadsheetResult["provider"];
+  spreadsheet?: SpreadsheetResult;
+  error?: string;
 };
 
 const SHEET_NAME = "상담신청";
@@ -198,7 +214,8 @@ function getPhoneLastFour(phone: string) {
 
 function createCoreSummary(body: ConsultationPayload) {
   const age = body.age.replace(/\s+/g, "");
-  const gender = body.gender === "여" ? "여성" : body.gender === "남" ? "남성" : body.gender;
+  const gender =
+    body.gender === "여" ? "여성" : body.gender === "남" ? "남성" : body.gender;
   const consultType = body.consultType
     .replace(/\([^)]*\)/g, "")
     .replace(/\/\/.*$/g, "")
@@ -214,10 +231,24 @@ function createSpreadsheetTitle(body: ConsultationPayload, submittedDate: Date) 
   )}_${getPhoneLastFour(body.phone)}`;
 }
 
-async function createSpreadsheet(
+function createSpreadsheetRows(body: ConsultationPayload, submittedDate: Date) {
+  return [
+    ["접수일시", formatSubmittedAt(submittedDate), ""],
+    [createCoreSummary(body), "", ""],
+    ["", "", ""],
+    ["번호", "문항", "답변"],
+    ...questions.map((question) => [
+      String(question.number),
+      question.label,
+      toCellValue(body[question.key]),
+    ]),
+  ];
+}
+
+async function createSpreadsheetWithServiceAccount(
   accessToken: string,
   title: string
-): Promise<CreatedSpreadsheet> {
+): Promise<ServiceAccountSpreadsheet> {
   const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID?.trim();
 
   if (!folderId) {
@@ -316,20 +347,8 @@ async function createSpreadsheet(
 async function writeSpreadsheetValues(
   accessToken: string,
   spreadsheetId: string,
-  body: ConsultationPayload,
-  submittedDate: Date
+  rows: string[][]
 ) {
-  const rows = [
-    ["접수일시", formatSubmittedAt(submittedDate), ""],
-    [createCoreSummary(body), "", ""],
-    [],
-    ["번호", "문항", "답변"],
-    ...questions.map((question) => [
-      String(question.number),
-      question.label,
-      toCellValue(body[question.key]),
-    ]),
-  ];
   const range = encodeURIComponent(`${SHEET_NAME}!A1:C${rows.length}`);
   const updateRes = await fetch(
     `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`,
@@ -565,35 +584,163 @@ async function grantOwnerReadAccess(accessToken: string, spreadsheetId: string) 
   }
 }
 
-async function createConsultationSpreadsheet(body: ConsultationPayload) {
+async function createWithServiceAccount(
+  title: string,
+  rows: string[][]
+): Promise<SpreadsheetResult> {
   const accessToken = await getGoogleAccessToken();
-  const submittedDate = new Date();
-  const title = createSpreadsheetTitle(body, submittedDate);
-  const spreadsheet = await createSpreadsheet(accessToken, title);
+  const spreadsheet = await createSpreadsheetWithServiceAccount(
+    accessToken,
+    title
+  );
 
-  await writeSpreadsheetValues(accessToken, spreadsheet.id, body, submittedDate);
+  await writeSpreadsheetValues(accessToken, spreadsheet.id, rows);
   await formatSpreadsheet(accessToken, spreadsheet.id, spreadsheet.sheetId);
   await grantOwnerReadAccess(accessToken, spreadsheet.id);
 
-  return spreadsheet;
+  return { ...spreadsheet, provider: "서비스 계정" };
+}
+
+async function createWithAppsScript(
+  title: string,
+  rows: string[][]
+): Promise<SpreadsheetResult> {
+  const appsScriptUrl = process.env.GOOGLE_APPS_SCRIPT_URL;
+
+  if (!appsScriptUrl) {
+    throw new Error("GOOGLE_APPS_SCRIPT_URL이 설정되지 않았습니다.");
+  }
+
+  const res = await fetch(appsScriptUrl, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({
+      secret: process.env.GOOGLE_APPS_SCRIPT_SECRET || "",
+      folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || "",
+      title,
+      sheetName: SHEET_NAME,
+      rows,
+    }),
+    redirect: "follow",
+  });
+  const text = await res.text();
+  let data: AppsScriptResult | null = null;
+
+  try {
+    data = JSON.parse(text) as AppsScriptResult;
+  } catch {
+    console.error("Apps Script non-JSON response:", text);
+  }
+
+  if (!res.ok || !data?.success || !data.spreadsheet?.url) {
+    throw new Error(
+      data?.message || "Apps Script 스프레드시트 생성에 실패했습니다."
+    );
+  }
+
+  return { ...data.spreadsheet, provider: "Apps Script" };
+}
+
+function isServiceAccountConfigured() {
+  return Boolean(
+    process.env.GOOGLE_SERVICE_ACCOUNT_EMAIL || process.env.GOOGLE_PRIVATE_KEY
+  );
+}
+
+function isAppsScriptConfigured() {
+  return Boolean(process.env.GOOGLE_APPS_SCRIPT_URL);
+}
+
+async function runProvider(
+  provider: SpreadsheetResult["provider"],
+  create: () => Promise<SpreadsheetResult>
+): Promise<ProviderResult> {
+  try {
+    return {
+      provider,
+      spreadsheet: await create(),
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error ? error.message : "알 수 없는 오류가 발생했습니다.";
+
+    console.error(`${provider} spreadsheet error:`, error);
+
+    return {
+      provider,
+      error: message,
+    };
+  }
+}
+
+async function createConsultationSpreadsheets(body: ConsultationPayload) {
+  const submittedDate = new Date();
+  const title = createSpreadsheetTitle(body, submittedDate);
+  const rows = createSpreadsheetRows(body, submittedDate);
+  const providers: Promise<ProviderResult>[] = [];
+
+  if (isServiceAccountConfigured()) {
+    providers.push(
+      runProvider("서비스 계정", () => createWithServiceAccount(title, rows))
+    );
+  }
+
+  if (isAppsScriptConfigured()) {
+    providers.push(runProvider("Apps Script", () => createWithAppsScript(title, rows)));
+  }
+
+  if (providers.length === 0) {
+    throw new Error(
+      "Google 저장 방식이 설정되지 않았습니다. 서비스 계정 또는 Apps Script 환경변수를 설정해주세요."
+    );
+  }
+
+  const results = await Promise.all(providers);
+  const spreadsheets = results
+    .map((result) => result.spreadsheet)
+    .filter((spreadsheet): spreadsheet is SpreadsheetResult =>
+      Boolean(spreadsheet)
+    );
+
+  if (spreadsheets.length === 0) {
+    const errors = results
+      .map((result) => `${result.provider}: ${result.error}`)
+      .join(" / ");
+
+    throw new Error(`스프레드시트 저장에 실패했습니다. ${errors}`);
+  }
+
+  return { spreadsheets, failures: results.filter((result) => result.error) };
 }
 
 async function sendTelegramMessage(
   body: ConsultationPayload,
-  spreadsheet: CreatedSpreadsheet
+  spreadsheets: SpreadsheetResult[],
+  failures: ProviderResult[]
 ) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
   if (!botToken || !chatId) return;
 
+  const fileLines = spreadsheets
+    .map(
+      (spreadsheet) =>
+        `[${spreadsheet.provider}]\n파일명: ${spreadsheet.title}\n파일 링크: ${spreadsheet.url}`
+    )
+    .join("\n\n");
+  const failureLines = failures.length
+    ? `\n\n저장 실패\n${failures
+        .map((failure) => `${failure.provider}: ${failure.error}`)
+        .join("\n")}`
+    : "";
   const telegramMessage = `
 새 상담 신청 스프레드시트가 생성되었습니다.
 
 성함: ${body.name}
 연락처: ${body.phone}
-파일명: ${spreadsheet.title}
-파일 링크: ${spreadsheet.url}
+
+${fileLines}${failureLines}
   `.trim();
 
   const telegramRes = await fetch(
@@ -630,13 +777,21 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const spreadsheet = await createConsultationSpreadsheet(body);
+    const { spreadsheets, failures } = await createConsultationSpreadsheets(
+      body
+    );
 
-    await sendTelegramMessage(body, spreadsheet);
+    await sendTelegramMessage(body, spreadsheets, failures);
 
     return NextResponse.json({
       success: true,
       message: "상담 신청이 정상적으로 접수되었습니다.",
+      spreadsheets: spreadsheets.map(({ provider, title, url }) => ({
+        provider,
+        title,
+        url,
+      })),
+      failures: failures.map(({ provider, error }) => ({ provider, error })),
     });
   } catch (error) {
     console.error("Consultation API error:", error);
