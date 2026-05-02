@@ -218,96 +218,99 @@ async function createSpreadsheet(
   accessToken: string,
   title: string
 ): Promise<CreatedSpreadsheet> {
-  const createRes = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      properties: {
-        title,
-      },
-      sheets: [
-        {
-          properties: {
-            title: SHEET_NAME,
-          },
-        },
-      ],
-    }),
+  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID?.trim();
+
+  if (!folderId) {
+    throw new Error("GOOGLE_DRIVE_FOLDER_ID가 설정되지 않았습니다.");
+  }
+
+  const createParams = new URLSearchParams({
+    fields: "id,name,webViewLink",
+    supportsAllDrives: "true",
   });
+  const createRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files?${createParams.toString()}`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: title,
+        mimeType: "application/vnd.google-apps.spreadsheet",
+        parents: [folderId],
+      }),
+    }
+  );
   const createData = await createRes.json();
 
-  if (!createRes.ok || !createData.spreadsheetId) {
-    console.error("Google Sheets create error:", createData);
+  if (!createRes.ok || !createData.id) {
+    console.error("Google Drive spreadsheet create error:", createData);
     throw new Error(
       getGoogleErrorMessage(createData, "스프레드시트 생성에 실패했습니다.")
     );
   }
 
-  return {
-    id: createData.spreadsheetId,
-    sheetId: createData.sheets?.[0]?.properties?.sheetId ?? 0,
-    title: createData.properties?.title || title,
-    url:
-      createData.spreadsheetUrl ||
-      `https://docs.google.com/spreadsheets/d/${createData.spreadsheetId}`,
-  };
-}
-
-async function moveSpreadsheetToFolder(
-  accessToken: string,
-  spreadsheetId: string
-) {
-  const folderId = process.env.GOOGLE_DRIVE_FOLDER_ID?.trim();
-
-  if (!folderId) return;
-
-  const parentsRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${spreadsheetId}?fields=parents&supportsAllDrives=true`,
+  const metadataRes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${createData.id}?fields=properties.title,spreadsheetUrl,sheets.properties.sheetId`,
     {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     }
   );
-  const parentsData = await parentsRes.json();
+  const metadata = await metadataRes.json();
 
-  if (!parentsRes.ok) {
-    console.error("Google Drive parent read error:", parentsData);
-    throw new Error("스프레드시트 폴더 정보를 불러오지 못했습니다.");
+  if (!metadataRes.ok) {
+    console.error("Google Sheets metadata error:", metadata);
+    throw new Error(
+      getGoogleErrorMessage(metadata, "스프레드시트 정보를 불러오지 못했습니다.")
+    );
   }
 
-  const removeParents = Array.isArray(parentsData.parents)
-    ? parentsData.parents.join(",")
-    : "";
-  const params = new URLSearchParams({
-    addParents: folderId,
-    fields: "id,parents",
-    supportsAllDrives: "true",
-  });
-
-  if (removeParents) {
-    params.set("removeParents", removeParents);
-  }
-
-  const moveRes = await fetch(
-    `https://www.googleapis.com/drive/v3/files/${spreadsheetId}?${params.toString()}`,
+  const sheetId = metadata.sheets?.[0]?.properties?.sheetId ?? 0;
+  const renameRes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${createData.id}:batchUpdate`,
     {
-      method: "PATCH",
+      method: "POST",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({
+        requests: [
+          {
+            updateSheetProperties: {
+              properties: {
+                sheetId,
+                title: SHEET_NAME,
+              },
+              fields: "title",
+            },
+          },
+        ],
+      }),
     }
   );
-  const moveData = await moveRes.json();
+  const renameData = await renameRes.json();
 
-  if (!moveRes.ok) {
-    console.error("Google Drive move error:", moveData);
-    throw new Error("스프레드시트 폴더 이동에 실패했습니다.");
+  if (!renameRes.ok) {
+    console.error("Google Sheets rename error:", renameData);
+    throw new Error(
+      getGoogleErrorMessage(renameData, "스프레드시트 탭 이름 변경에 실패했습니다.")
+    );
   }
+
+  return {
+    id: createData.id,
+    sheetId,
+    title: createData.name || metadata.properties?.title || title,
+    url:
+      createData.webViewLink ||
+      metadata.spreadsheetUrl ||
+      `https://docs.google.com/spreadsheets/d/${createData.id}`,
+  };
 }
 
 async function writeSpreadsheetValues(
@@ -568,7 +571,6 @@ async function createConsultationSpreadsheet(body: ConsultationPayload) {
   const title = createSpreadsheetTitle(body, submittedDate);
   const spreadsheet = await createSpreadsheet(accessToken, title);
 
-  await moveSpreadsheetToFolder(accessToken, spreadsheet.id);
   await writeSpreadsheetValues(accessToken, spreadsheet.id, body, submittedDate);
   await formatSpreadsheet(accessToken, spreadsheet.id, spreadsheet.sheetId);
   await grantOwnerReadAccess(accessToken, spreadsheet.id);
