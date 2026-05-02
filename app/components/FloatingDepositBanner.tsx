@@ -2,7 +2,7 @@ export default function FloatingDepositBanner() {
   return (
     <aside
       aria-label="상담 신청 입금 안내"
-      className="fixed inset-x-4 bottom-4 z-40 rounded-2xl border border-amber-200 bg-white/95 p-4 text-gray-950 shadow-2xl shadow-black/15 backdrop-blur md:inset-x-auto md:right-5 md:top-1/2 md:bottom-auto md:w-72 md:-translate-y-1/2"
+      className="fixed inset-x-4 bottom-4 z-40 rounded-2xl border border-amber-200 bg-white/95 p-4 text-gray-950 shadow-2xl shadow-black/15 backdrop-blur md:inset-x-auto md:right-5 md:top-1/2 md:bottom-auto md:w-80 md:-translate-y-1/2"
     >
       <p className="text-xs font-bold uppercase tracking-[0.18em] text-amber-700">
         신청 후 입금
@@ -19,7 +19,7 @@ export default function FloatingDepositBanner() {
           김선영(어부야타이거)
         </p>
       </div>
-      <p className="mt-3 text-sm font-semibold leading-6 text-red-700">
+      <p className="mt-3 text-sm font-semibold leading-6 text-red-700 md:whitespace-nowrap">
         이체까지 완료되어야 상담 신청이 접수됩니다.
       </p>
     </aside>
