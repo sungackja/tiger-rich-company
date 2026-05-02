@@ -93,7 +93,7 @@ function createJwt(clientEmail: string, privateKey: string) {
   const claimSet = {
     iss: clientEmail,
     scope:
-      "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file",
+      "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive",
     aud: "https://oauth2.googleapis.com/token",
     exp: now + 3600,
     iat: now,
