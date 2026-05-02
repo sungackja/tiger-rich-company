@@ -202,7 +202,7 @@ function formatTitleDate(date: Date) {
 function sanitizeTitlePart(value: string) {
   return value
     .trim()
-    .replace(/[\\/:*?"<>|#%{}[\]^~`]/g, "")
+    .replace(/[\\/:*?"<>|#%{}\[\]^~`]/g, "")
     .replace(/\s+/g, "");
 }
 
