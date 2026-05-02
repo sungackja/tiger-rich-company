@@ -200,9 +200,30 @@ function formatTitleDate(date: Date) {
 }
 
 function sanitizeTitlePart(value: string) {
-  return value
-    .trim()
-    .replace(/[\\/:*?"<>|#%{}\[\]^~`]/g, "")
+  const unsafeChars = new Set([
+    "\\",
+    "/",
+    ":",
+    "*",
+    "?",
+    '"',
+    "<",
+    ">",
+    "|",
+    "#",
+    "%",
+    "{",
+    "}",
+    "[",
+    "]",
+    "^",
+    "~",
+    "`",
+  ]);
+
+  return Array.from(value.trim())
+    .filter((char) => !unsafeChars.has(char))
+    .join("")
     .replace(/\s+/g, "");
 }
 
