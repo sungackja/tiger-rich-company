@@ -1,5 +1,6 @@
 import "./globals.css";
 import type { Metadata } from "next";
+import FloatingDepositBanner from "./components/FloatingDepositBanner";
 
 export const metadata: Metadata = {
   title: "Tiger Rich Company | 부동산 상담 신청",
@@ -14,7 +15,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body>
+        {children}
+        <FloatingDepositBanner />
+      </body>
     </html>
   );
 }

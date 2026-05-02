@@ -33,9 +33,8 @@ export default function Footer() {
           <div>
             <h4 className="text-lg font-semibold text-white">Contact</h4>
             <ul className="mt-4 space-y-2 text-sm">
-              <li>전화: 010-0000-0000</li>
-              <li>이메일: tiger@richcompany.com</li>
-              <li>카카오톡: Tiger Rich Company</li>
+              <li>카카오톡: 오픈채팅방</li>
+              <li>인스타그램: tiger.rich.company</li>
             </ul>
           </div>
         </div>
