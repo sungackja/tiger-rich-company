@@ -35,6 +35,7 @@ export default function Footer() {
             <ul className="mt-4 space-y-2 text-sm">
               <li>카카오톡: 오픈채팅방</li>
               <li>인스타그램: tiger.rich.company</li>
+              <li>Youtube: 타이거TV</li>
             </ul>
           </div>
         </div>
