@@ -32,6 +32,7 @@ type Question = {
 
 type CreatedSpreadsheet = {
   id: string;
+  sheetId: number;
   title: string;
   url: string;
 };
@@ -179,8 +180,20 @@ function getPhoneLastFour(phone: string) {
   return digits.slice(-4).padStart(4, "0");
 }
 
+function createCoreSummary(body: ConsultationPayload) {
+  const age = body.age.replace(/\s+/g, "");
+  const gender = body.gender === "여" ? "여성" : body.gender === "남" ? "남성" : body.gender;
+  const consultType = body.consultType
+    .replace(/\([^)]*\)/g, "")
+    .replace(/\/\/.*$/g, "")
+    .replace(/\s+/g, "")
+    .trim();
+
+  return `핵심: ${body.name}_${age}_${gender}_${consultType}`;
+}
+
 function createSpreadsheetTitle(body: ConsultationPayload, submittedDate: Date) {
-  return `신청날짜(${formatTitleDate(submittedDate)})_${sanitizeTitlePart(
+  return `${formatTitleDate(submittedDate)}_${sanitizeTitlePart(
     body.name
   )}_${getPhoneLastFour(body.phone)}`;
 }
@@ -217,6 +230,7 @@ async function createSpreadsheet(
 
   return {
     id: createData.spreadsheetId,
+    sheetId: createData.sheets?.[0]?.properties?.sheetId ?? 0,
     title: createData.properties?.title || title,
     url:
       createData.spreadsheetUrl ||
@@ -231,7 +245,8 @@ async function writeSpreadsheetValues(
   submittedDate: Date
 ) {
   const rows = [
-    ["접수일시", formatSubmittedAt(submittedDate)],
+    ["접수일시", formatSubmittedAt(submittedDate), ""],
+    [createCoreSummary(body), "", ""],
     [],
     ["번호", "문항", "답변"],
     ...questions.map((question) => [
@@ -259,6 +274,189 @@ async function writeSpreadsheetValues(
   if (!updateRes.ok) {
     console.error("Google Sheets write error:", updateData);
     throw new Error("스프레드시트 저장에 실패했습니다.");
+  }
+}
+
+async function formatSpreadsheet(
+  accessToken: string,
+  spreadsheetId: string,
+  sheetId: number
+) {
+  const longMessageRowIndex = 18;
+  const totalRowCount = 22;
+  const formatRes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        requests: [
+          {
+            updateDimensionProperties: {
+              range: {
+                sheetId,
+                dimension: "COLUMNS",
+                startIndex: 0,
+                endIndex: 1,
+              },
+              properties: { pixelSize: 88 },
+              fields: "pixelSize",
+            },
+          },
+          {
+            updateDimensionProperties: {
+              range: {
+                sheetId,
+                dimension: "COLUMNS",
+                startIndex: 1,
+                endIndex: 2,
+              },
+              properties: { pixelSize: 360 },
+              fields: "pixelSize",
+            },
+          },
+          {
+            updateDimensionProperties: {
+              range: {
+                sheetId,
+                dimension: "COLUMNS",
+                startIndex: 2,
+                endIndex: 3,
+              },
+              properties: { pixelSize: 980 },
+              fields: "pixelSize",
+            },
+          },
+          {
+            updateDimensionProperties: {
+              range: {
+                sheetId,
+                dimension: "ROWS",
+                startIndex: longMessageRowIndex,
+                endIndex: longMessageRowIndex + 1,
+              },
+              properties: { pixelSize: 760 },
+              fields: "pixelSize",
+            },
+          },
+          {
+            mergeCells: {
+              range: {
+                sheetId,
+                startRowIndex: 1,
+                endRowIndex: 2,
+                startColumnIndex: 0,
+                endColumnIndex: 3,
+              },
+              mergeType: "MERGE_ALL",
+            },
+          },
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: 0,
+                endRowIndex: totalRowCount,
+                startColumnIndex: 0,
+                endColumnIndex: 3,
+              },
+              cell: {
+                userEnteredFormat: {
+                  wrapStrategy: "WRAP",
+                  verticalAlignment: "TOP",
+                  borders: {
+                    top: {
+                      style: "SOLID",
+                      color: { red: 0, green: 0, blue: 0 },
+                    },
+                    bottom: {
+                      style: "SOLID",
+                      color: { red: 0, green: 0, blue: 0 },
+                    },
+                    left: {
+                      style: "SOLID",
+                      color: { red: 0, green: 0, blue: 0 },
+                    },
+                    right: {
+                      style: "SOLID",
+                      color: { red: 0, green: 0, blue: 0 },
+                    },
+                  },
+                },
+              },
+              fields:
+                "userEnteredFormat.wrapStrategy,userEnteredFormat.verticalAlignment,userEnteredFormat.borders",
+            },
+          },
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: 0,
+                endRowIndex: 2,
+                startColumnIndex: 0,
+                endColumnIndex: 3,
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: {
+                    red: 1,
+                    green: 0.97,
+                    blue: 0.9,
+                  },
+                  textFormat: {
+                    bold: true,
+                    fontSize: 12,
+                  },
+                  verticalAlignment: "MIDDLE",
+                },
+              },
+              fields:
+                "userEnteredFormat.backgroundColor,userEnteredFormat.textFormat,userEnteredFormat.verticalAlignment",
+            },
+          },
+          {
+            repeatCell: {
+              range: {
+                sheetId,
+                startRowIndex: 3,
+                endRowIndex: 4,
+                startColumnIndex: 0,
+                endColumnIndex: 3,
+              },
+              cell: {
+                userEnteredFormat: {
+                  backgroundColor: {
+                    red: 0.86,
+                    green: 0.93,
+                    blue: 1,
+                  },
+                  textFormat: {
+                    foregroundColor: {
+                      red: 0.07,
+                      green: 0.12,
+                      blue: 0.22,
+                    },
+                    bold: true,
+                  },
+                },
+              },
+              fields:
+                "userEnteredFormat.backgroundColor,userEnteredFormat.textFormat",
+            },
+          },
+        ],
+      }),
+    }
+  );
+  const formatData = await formatRes.json();
+
+  if (!formatRes.ok) {
+    console.error("Google Sheets format error:", formatData);
+    throw new Error("스프레드시트 서식 설정에 실패했습니다.");
   }
 }
 
@@ -299,6 +497,7 @@ async function createConsultationSpreadsheet(body: ConsultationPayload) {
   const spreadsheet = await createSpreadsheet(accessToken, title);
 
   await writeSpreadsheetValues(accessToken, spreadsheet.id, body, submittedDate);
+  await formatSpreadsheet(accessToken, spreadsheet.id, spreadsheet.sheetId);
   await grantOwnerReadAccess(accessToken, spreadsheet.id);
 
   return spreadsheet;
