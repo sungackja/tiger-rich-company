@@ -839,18 +839,11 @@ export async function POST(req: NextRequest) {
       body
     );
 
-    const telegram = await sendTelegramMessage(body, spreadsheets, failures);
+    await sendTelegramMessage(body, spreadsheets, failures);
 
     return NextResponse.json({
       success: true,
       message: "상담 신청이 정상적으로 접수되었습니다.",
-      spreadsheets: spreadsheets.map(({ provider, title, url }) => ({
-        provider,
-        title,
-        url,
-      })),
-      failures: failures.map(({ provider, error }) => ({ provider, error })),
-      telegram,
     });
   } catch (error) {
     console.error("Consultation API error:", error);
