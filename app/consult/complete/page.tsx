@@ -1,18 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function ConsultCompletePage() {
   const router = useRouter();
+  const [secondsLeft, setSecondsLeft] = useState(5);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
+    const interval = window.setInterval(() => {
+      setSecondsLeft((current) => Math.max(current - 1, 0));
+    }, 1000);
+    const redirectTimer = window.setTimeout(() => {
       router.push("/");
     }, 5000);
 
-    return () => window.clearTimeout(timer);
+    return () => {
+      window.clearInterval(interval);
+      window.clearTimeout(redirectTimer);
+    };
   }, [router]);
 
   return (
@@ -39,7 +46,7 @@ export default function ConsultCompletePage() {
         </div>
 
         <p className="mt-4 text-sm font-medium text-gray-500">
-          5초 후 홈으로 자동 이동합니다.
+          {secondsLeft}초 후 홈으로 자동 이동합니다.
         </p>
 
         <div className="mt-8 space-y-3">

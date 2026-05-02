@@ -436,9 +436,19 @@ export default function ConsultPage() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full rounded-2xl bg-black px-6 py-4 text-lg font-semibold text-white shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
+                    className="flex w-full items-center justify-center gap-3 rounded-2xl bg-black px-6 py-4 text-lg font-semibold text-white shadow-lg shadow-black/10 transition hover:-translate-y-0.5 hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-60"
                   >
-                    {loading ? "접수 중..." : "상담 신청하기"}
+                    {loading ? (
+                      <>
+                        <span
+                          aria-hidden="true"
+                          className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white"
+                        />
+                        <span>접수 중...</span>
+                      </>
+                    ) : (
+                      "상담 신청하기"
+                    )}
                   </button>
 
                   {message ? (

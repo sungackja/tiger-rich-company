@@ -53,6 +53,14 @@ type ProviderResult = {
   error?: string;
 };
 
+type TelegramResult =
+  | { ok: true }
+  | {
+      ok: false;
+      reason: "missing-env" | "api-error";
+      message: string;
+    };
+
 const SHEET_NAME = "상담신청";
 
 const questions: Question[] = [
@@ -753,11 +761,17 @@ async function sendTelegramMessage(
   body: ConsultationPayload,
   spreadsheets: SpreadsheetResult[],
   failures: ProviderResult[]
-) {
+): Promise<TelegramResult> {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
-  if (!botToken || !chatId) return;
+  if (!botToken || !chatId) {
+    return {
+      ok: false,
+      reason: "missing-env",
+      message: "TELEGRAM_BOT_TOKEN 또는 TELEGRAM_CHAT_ID가 설정되지 않았습니다.",
+    };
+  }
 
   const fileLines = spreadsheets
     .map(
@@ -795,7 +809,15 @@ ${fileLines}${failureLines}
   if (!telegramRes.ok) {
     const telegramErrorText = await telegramRes.text();
     console.error("Telegram send error:", telegramErrorText);
+
+    return {
+      ok: false,
+      reason: "api-error",
+      message: telegramErrorText,
+    };
   }
+
+  return { ok: true };
 }
 
 export async function POST(req: NextRequest) {
@@ -817,7 +839,7 @@ export async function POST(req: NextRequest) {
       body
     );
 
-    await sendTelegramMessage(body, spreadsheets, failures);
+    const telegram = await sendTelegramMessage(body, spreadsheets, failures);
 
     return NextResponse.json({
       success: true,
@@ -828,6 +850,7 @@ export async function POST(req: NextRequest) {
         url,
       })),
       failures: failures.map(({ provider, error }) => ({ provider, error })),
+      telegram,
     });
   } catch (error) {
     console.error("Consultation API error:", error);
