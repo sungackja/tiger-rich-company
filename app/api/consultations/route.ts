@@ -245,6 +245,14 @@ function createSpreadsheetRows(body: ConsultationPayload, submittedDate: Date) {
   ];
 }
 
+function getAppsScriptSecret() {
+  return (
+    process.env.GOOGLE_APPS_SCRIPT_SECRET ||
+    process.env.CONSULTATION_SCRIPT_SECRET ||
+    ""
+  );
+}
+
 async function createSpreadsheetWithServiceAccount(
   accessToken: string,
   title: string
@@ -615,7 +623,7 @@ async function createWithAppsScript(
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
     body: JSON.stringify({
-      secret: process.env.GOOGLE_APPS_SCRIPT_SECRET || "",
+      secret: getAppsScriptSecret(),
       folderId: process.env.GOOGLE_DRIVE_FOLDER_ID || "",
       title,
       sheetName: SHEET_NAME,
@@ -625,16 +633,23 @@ async function createWithAppsScript(
   });
   const text = await res.text();
   let data: AppsScriptResult | null = null;
+  let nonJsonErrorMessage: string | null = null;
 
   try {
     data = JSON.parse(text) as AppsScriptResult;
   } catch {
     console.error("Apps Script non-JSON response:", text);
+    nonJsonErrorMessage =
+      text.includes("request-access") || text.includes("docs-drivelogo")
+        ? "Apps Script 웹앱 접근 권한을 '모든 사용자'로 설정하고 /exec 배포 URL을 넣어주세요."
+        : "Apps Script가 JSON 응답을 반환하지 않았습니다.";
   }
 
   if (!res.ok || !data?.success || !data.spreadsheet?.url) {
     throw new Error(
-      data?.message || "Apps Script 스프레드시트 생성에 실패했습니다."
+      data?.message ||
+        nonJsonErrorMessage ||
+        "Apps Script 스프레드시트 생성에 실패했습니다."
     );
   }
 
