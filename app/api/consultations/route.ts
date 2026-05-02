@@ -30,6 +30,14 @@ type Question = {
   label: string;
 };
 
+type CreatedSpreadsheet = {
+  id: string;
+  title: string;
+  url: string;
+};
+
+const SHEET_NAME = "상담신청";
+
 const questions: Question[] = [
   { number: 1, key: "name", label: "성함" },
   { number: 2, key: "age", label: "연령대" },
@@ -67,7 +75,8 @@ function createJwt(clientEmail: string, privateKey: string) {
   };
   const claimSet = {
     iss: clientEmail,
-    scope: "https://www.googleapis.com/auth/spreadsheets",
+    scope:
+      "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.file",
     aud: "https://oauth2.googleapis.com/token",
     exp: now + 3600,
     iat: now,
@@ -106,7 +115,6 @@ async function getGoogleAccessToken() {
       assertion: createJwt(clientEmail, privateKey),
     }),
   });
-
   const tokenData = await tokenRes.json();
 
   if (!tokenRes.ok || !tokenData.access_token) {
@@ -136,117 +144,105 @@ function toCellValue(value: string | string[]) {
   return Array.isArray(value) ? value.join(", ") : value.trim();
 }
 
-async function appendToSheet(body: ConsultationPayload) {
-  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
-  const sheetName = process.env.GOOGLE_SHEETS_SHEET_NAME || "상담신청";
+function formatSubmittedAt(date: Date) {
+  return new Intl.DateTimeFormat("ko-KR", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Seoul",
+  }).format(date);
+}
 
-  if (!spreadsheetId) {
-    throw new Error("GOOGLE_SHEETS_SPREADSHEET_ID가 설정되지 않았습니다.");
-  }
+function formatTitleDate(date: Date) {
+  const parts = new Intl.DateTimeFormat("ko-KR", {
+    year: "2-digit",
+    month: "2-digit",
+    day: "2-digit",
+    timeZone: "Asia/Seoul",
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value || "00";
+  const month = parts.find((part) => part.type === "month")?.value || "00";
+  const day = parts.find((part) => part.type === "day")?.value || "00";
 
-  const accessToken = await getGoogleAccessToken();
-  await ensureSheet(accessToken, spreadsheetId, sheetName);
+  return `${year}${month}${day}`;
+}
 
-  const row = [
-    new Date().toLocaleString("ko-KR", { timeZone: "Asia/Seoul" }),
-    ...questions.map((question) => toCellValue(body[question.key])),
-  ];
-  const range = encodeURIComponent(`${sheetName}!A:S`);
-  const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS`;
-  const appendRes = await fetch(appendUrl, {
+function sanitizeTitlePart(value: string) {
+  return value
+    .trim()
+    .replace(/[\\/:*?"<>|#%{}[\]^~`]/g, "")
+    .replace(/\s+/g, "");
+}
+
+function getPhoneLastFour(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+
+  return digits.slice(-4).padStart(4, "0");
+}
+
+function createSpreadsheetTitle(body: ConsultationPayload, submittedDate: Date) {
+  return `신청날짜(${formatTitleDate(submittedDate)})_${sanitizeTitlePart(
+    body.name
+  )}_${getPhoneLastFour(body.phone)}`;
+}
+
+async function createSpreadsheet(
+  accessToken: string,
+  title: string
+): Promise<CreatedSpreadsheet> {
+  const createRes = await fetch("https://sheets.googleapis.com/v4/spreadsheets", {
     method: "POST",
     headers: {
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      values: [row],
+      properties: {
+        title,
+      },
+      sheets: [
+        {
+          properties: {
+            title: SHEET_NAME,
+          },
+        },
+      ],
     }),
   });
-  const appendData = await appendRes.json();
+  const createData = await createRes.json();
 
-  if (!appendRes.ok) {
-    console.error("Google Sheets append error:", appendData);
-    throw new Error("스프레드시트 저장에 실패했습니다.");
+  if (!createRes.ok || !createData.spreadsheetId) {
+    console.error("Google Sheets create error:", createData);
+    throw new Error("스프레드시트 생성에 실패했습니다.");
   }
+
+  return {
+    id: createData.spreadsheetId,
+    title: createData.properties?.title || title,
+    url:
+      createData.spreadsheetUrl ||
+      `https://docs.google.com/spreadsheets/d/${createData.spreadsheetId}`,
+  };
 }
 
-async function ensureSheet(
+async function writeSpreadsheetValues(
   accessToken: string,
   spreadsheetId: string,
-  sheetName: string
+  body: ConsultationPayload,
+  submittedDate: Date
 ) {
-  const metadataRes = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}?fields=sheets.properties.title`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
-  const metadata = await metadataRes.json();
-
-  if (!metadataRes.ok) {
-    console.error("Google Sheets metadata error:", metadata);
-    throw new Error("스프레드시트 정보를 불러오지 못했습니다.");
-  }
-
-  const sheetExists = metadata.sheets?.some(
-    (sheet: { properties?: { title?: string } }) =>
-      sheet.properties?.title === sheetName
-  );
-
-  if (!sheetExists) {
-    const createRes = await fetch(
-      `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}:batchUpdate`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          requests: [
-            {
-              addSheet: {
-                properties: {
-                  title: sheetName,
-                },
-              },
-            },
-          ],
-        }),
-      }
-    );
-    const createData = await createRes.json();
-
-    if (!createRes.ok) {
-      console.error("Google Sheets create sheet error:", createData);
-      throw new Error("스프레드시트 탭 생성에 실패했습니다.");
-    }
-  }
-
-  const headerRange = encodeURIComponent(`${sheetName}!A1:S1`);
-  const headerRes = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${headerRange}`,
-    {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-      },
-    }
-  );
-  const headerData = await headerRes.json();
-
-  if (!headerRes.ok) {
-    console.error("Google Sheets header read error:", headerData);
-    throw new Error("스프레드시트 헤더 확인에 실패했습니다.");
-  }
-
-  if (headerData.values?.length) return;
-
-  const headerValues = ["접수일시", ...questions.map((question) => question.label)];
-  const updateHeaderRes = await fetch(
-    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${headerRange}?valueInputOption=USER_ENTERED`,
+  const rows = [
+    ["접수일시", formatSubmittedAt(submittedDate)],
+    [],
+    ["번호", "문항", "답변"],
+    ...questions.map((question) => [
+      String(question.number),
+      question.label,
+      toCellValue(body[question.key]),
+    ]),
+  ];
+  const range = encodeURIComponent(`${SHEET_NAME}!A1:C${rows.length}`);
+  const updateRes = await fetch(
+    `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?valueInputOption=USER_ENTERED`,
     {
       method: "PUT",
       headers: {
@@ -254,30 +250,76 @@ async function ensureSheet(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        values: [headerValues],
+        values: rows,
       }),
     }
   );
-  const updateHeaderData = await updateHeaderRes.json();
+  const updateData = await updateRes.json();
 
-  if (!updateHeaderRes.ok) {
-    console.error("Google Sheets header update error:", updateHeaderData);
-    throw new Error("스프레드시트 헤더 생성에 실패했습니다.");
+  if (!updateRes.ok) {
+    console.error("Google Sheets write error:", updateData);
+    throw new Error("스프레드시트 저장에 실패했습니다.");
   }
 }
 
-async function sendTelegramMessage(body: ConsultationPayload, spreadsheetUrl: string) {
+async function grantOwnerReadAccess(accessToken: string, spreadsheetId: string) {
+  const ownerEmail = process.env.GOOGLE_DRIVE_OWNER_EMAIL;
+
+  if (!ownerEmail) {
+    throw new Error("GOOGLE_DRIVE_OWNER_EMAIL이 설정되지 않았습니다.");
+  }
+
+  const permissionRes = await fetch(
+    `https://www.googleapis.com/drive/v3/files/${spreadsheetId}/permissions?sendNotificationEmail=false`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        type: "user",
+        role: "reader",
+        emailAddress: ownerEmail,
+      }),
+    }
+  );
+  const permissionData = await permissionRes.json();
+
+  if (!permissionRes.ok) {
+    console.error("Google Drive permission error:", permissionData);
+    throw new Error("스프레드시트 읽기 권한 설정에 실패했습니다.");
+  }
+}
+
+async function createConsultationSpreadsheet(body: ConsultationPayload) {
+  const accessToken = await getGoogleAccessToken();
+  const submittedDate = new Date();
+  const title = createSpreadsheetTitle(body, submittedDate);
+  const spreadsheet = await createSpreadsheet(accessToken, title);
+
+  await writeSpreadsheetValues(accessToken, spreadsheet.id, body, submittedDate);
+  await grantOwnerReadAccess(accessToken, spreadsheet.id);
+
+  return spreadsheet;
+}
+
+async function sendTelegramMessage(
+  body: ConsultationPayload,
+  spreadsheet: CreatedSpreadsheet
+) {
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = process.env.TELEGRAM_CHAT_ID;
 
   if (!botToken || !chatId) return;
 
   const telegramMessage = `
-새 상담 신청이 스프레드시트에 저장되었습니다.
+새 상담 신청 스프레드시트가 생성되었습니다.
 
 성함: ${body.name}
 연락처: ${body.phone}
-파일 링크: ${spreadsheetUrl}
+파일명: ${spreadsheet.title}
+파일 링크: ${spreadsheet.url}
   `.trim();
 
   const telegramRes = await fetch(
@@ -314,13 +356,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
-    const spreadsheetUrl =
-      process.env.GOOGLE_SPREADSHEET_URL ||
-      `https://docs.google.com/spreadsheets/d/${spreadsheetId}`;
+    const spreadsheet = await createConsultationSpreadsheet(body);
 
-    await appendToSheet(body);
-    await sendTelegramMessage(body, spreadsheetUrl);
+    await sendTelegramMessage(body, spreadsheet);
 
     return NextResponse.json({
       success: true,
