@@ -2,6 +2,20 @@
 
 const LONG_MESSAGE_ROW = 19;
 
+function doGet() {
+  return jsonResponse({
+    success: true,
+    message: "TIGER 상담 Apps Script가 외부 호출 가능합니다.",
+  });
+}
+
+function testAuth() {
+  const spreadsheet = SpreadsheetApp.create("tiger-consult-auth-test");
+  const file = DriveApp.getFileById(spreadsheet.getId());
+
+  file.setTrashed(true);
+}
+
 function doPost(e) {
   try {
     const payload = JSON.parse(e.postData.contents || "{}");
